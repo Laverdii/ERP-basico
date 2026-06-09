@@ -79,17 +79,19 @@ async function buscarProximoProdutoIdDisponivel() {
   return proximoId;
 }
 
-/*
-  ============================================
-  FUNÇÃO PARA FORMATAR O TIPO DO Produto
-  ============================================
+function formatarDataParaInput(data) {
+  const ano = data.getFullYear();
+  const mes = String(data.getMonth() + 1).padStart(2, "0");
+  const dia = String(data.getDate()).padStart(2, "0");
 
-  No banco, o tipo é salvo como:
-  F = Pessoa Física
-  J = Pessoa Jurídica
+  return `${ano}-${mes}-${dia}`;
+}
 
-  Essa função transforma o valor salvo no banco em um texto amigável.
-*/
+function preencherDatasAutomaticas() {
+  const hoje = new Date();
+
+  dataCadastroInput.value = formatarDataParaInput(hoje);
+}
 
 /*
   ============================================
@@ -110,21 +112,34 @@ async function buscarProximoProdutoIdDisponivel() {
   .from("Produto")
 */
 
+async function carregarCategoriasDoSelect() {
+  const { data, error } = await supabaseClient
+    .from("categoria_produto")
+    .select("categoriaprodutoid, ds_categoria_produto")
+    .order("ds_categoria_produto", { ascending: true });
+
+  if (error) {
+    mostrarMensagem("Erro ao carregar categorias: " + error.message, "erro");
+    return;
+  }
+
+  categoriaProdutoInput.innerHTML = `<option value="">Selecione</option>`;
+
+  data.forEach(function(categoria) {
+    const option = document.createElement("option");
+
+    option.value = categoria.categoriaprodutoid;
+    option.textContent = categoria.ds_categoria_produto;
+
+    categoriaProdutoInput.appendChild(option);
+  });
+}
+
+
 async function carregarProdutos() {
-  /*
-    Faz um SELECT na tabela Produto.
-
-    Estamos buscando as colunas:
-    - Produtoid
-    - tipo_Produto
-    - cpf_cnpj_Produto
-    - nome_Produto
-
-    E ordenando pelo Produtoid em ordem crescente.
-  */
   const { data, error } = await supabaseClient
     .from("produto")
-    .select("produtoid, ds_produto, obs_produto, vl_venda_produto, dt_cadastro_produto, status_produto")
+    .select("produtoid, categoriaprodutoid, ds_produto, obs_produto, vl_venda_produto, dt_cadastro_produto, status_produto")
     .order("produtoid", { ascending: true });
 
   /*
@@ -138,7 +153,7 @@ async function carregarProdutos() {
       </tr>
     `;
 
-    mostrarMensagem("Erro ao buscar Produtos: " + error.message, "erro");
+    mostrarMensagem("Erro ao buscar produtos: " + error.message, "erro");
     return;
   }
 
@@ -177,6 +192,7 @@ async function carregarProdutos() {
     */
     linha.innerHTML = `
       <td>${Produto.produtoid}</td>
+      <td>${Produto.categoriaprodutoid}</td>
       <td>${Produto.ds_produto}</td>
       <td>${Produto.obs_produto}</td>
       <td>${Produto.vl_venda_produto}</td>
@@ -261,18 +277,8 @@ function prepararEdicao(Produto) {
     Preenche os demais campos com os dados do Produto.
   */
   descProduto.value = Produto.ds_produto;
-  ob.value = Produto.obs_produto;
+  obsProduto.value = Produto.obs_produto;
   dataCadastroInput.value = Produto.nome_Produto;
-
-  /*
-    Neste exemplo, vamos permitir editar apenas o nome.
-
-    Por isso:
-    - bloqueamos o tipo;
-    - bloqueamos o CPF/CNPJ.
-  */
-  tipoProdutoInput.disabled = false;
-  cpfCnpjProdutoInput.readOnly = false;
 
   /*
     Mudamos o texto do botão principal para "Atualizar".
@@ -287,7 +293,7 @@ function prepararEdicao(Produto) {
   /*
     Mostramos uma mensagem informando que o usuário está editando.
   */
-  mostrarMensagem("Editando o Produto: " + Produto.nome_Produto, "sucesso");
+  mostrarMensagem("Editando o Produto: " + Produto.obs_produto + " - " + Produto.ds_produto + "sucesso");
 }
 
 /*
@@ -309,12 +315,6 @@ function cancelarEdicao() {
     Se o ID estiver vazio, o sistema entende que é um novo cadastro.
   */
   ProdutoIdInput.value = "";
-
-  /*
-    Libera os campos que estavam bloqueados durante a edição.
-  */
-  tipoProdutoInput.disabled = false;
-  cpfCnpjProdutoInput.readOnly = false;
 
   /*
     Volta o botão principal para "Salvar".
@@ -347,9 +347,13 @@ async function salvarProduto() {
   /*
     Pegamos os valores digitados no formulário.
   */
-  const tipoProduto = tipoProdutoInput.value;
-  const cpfCnpjProduto = cpfCnpjProdutoInput.value;
-  const nomeProduto = nomeProdutoInput.value;
+ 
+  const categoriaProduto = categoriaProdutoInput.value;
+  const descProduto = descProduto.value;
+  const obsProduto = obsProduto.value;
+  const valorProduto = valorProdutoInput.value;
+  const dataCadastro = dataCadastroInput.value;
+  const statusProduto = statusProduto.value;
 
   let proximoProdutoId;
   try {
@@ -364,18 +368,22 @@ async function salvarProduto() {
 
     As propriedades precisam ter o mesmo nome das colunas da tabela.
   */
+
   const novoProduto = {
     produtoid: proximoProdutoId,
-    tipo_Produto: tipoProduto,
-    cpf_cnpj_Produto: cpfCnpjProduto,
-    nome_Produto: nomeProduto
+    categoriaprodutoid: categoriaProduto,
+    ds_produto: descProduto,
+    obs_produto: obsProduto,
+    vl_venda_produto: valorProduto,
+    dt_cadastro_produto: dataCadastro,
+    status_produto: statusProduto
   };
 
   /*
     Insere o novo Produto na tabela Produto.
   */
   const { error } = await supabaseClient
-    .from("Produto")
+    .from("produto")
     .insert(novoProduto);
 
   /*
@@ -421,20 +429,20 @@ async function atualizarNomeProduto() {
   /*
     Pegamos o novo nome digitado.
   */
-  const nomeProduto = nomeProdutoInput.value;
+  const ds_Produto = descProduto.value;
 
   /*
-    Atualizamos somente a coluna nome_Produto.
+    Atualizamos somente a coluna ds_produto.
 
-    O filtro .eq("Produtoid", ProdutoId) é essencial.
+    O filtro .eq("produtoid", ProdutoId) é essencial.
     Ele informa qual registro será atualizado.
   */
   const { error } = await supabaseClient
-    .from("Produto")
+    .from("produto")
     .update({
-      nome_Produto: nomeProduto
+      ds_produto: ds_Produto
     })
-    .eq("Produtoid", ProdutoId);
+    .eq("produtoid", ProdutoId);
 
   /*
     Se houver erro, mostramos a mensagem e paramos.
@@ -481,7 +489,7 @@ async function excluirProduto(Produto) {
     - false se o usuário clicar em Cancelar.
   */
   const confirmou = confirm(
-    "Tem certeza que deseja excluir o Produto " + Produto.nome_Produto + "?"
+    "Tem certeza que deseja excluir o produto " + Produto.ds_produto + " - " + Produto.obs_produto + "?"
   );
 
   /*
@@ -494,19 +502,19 @@ async function excluirProduto(Produto) {
   /*
     Executa o DELETE na tabela Produto.
 
-    O filtro .eq("Produtoid", Produto.Produtoid) garante que apenas
+    O filtro .eq("produtoid", Produto.produtoid) garante que apenas
     o Produto selecionado será excluído.
   */
   const { error } = await supabaseClient
-    .from("Produto")
+    .from("produto")
     .delete()
-    .eq("Produtoid", Produto.Produtoid);
+    .eq("produtoid", Produto.produtoid);
 
   /*
     Se houver erro, mostramos uma mensagem.
   */
   if (error) {
-    mostrarMensagem("Erro ao excluir Produto: " + error.message, "erro");
+    mostrarMensagem("Erro ao excluir produto: " + error.message, "erro");
     return;
   }
 
@@ -514,7 +522,7 @@ async function excluirProduto(Produto) {
     Se o Produto excluído era o mesmo que estava sendo editado,
     cancelamos a edição para limpar o formulário.
   */
-  if (ProdutoIdInput.value == Produto.Produtoid) {
+  if (ProdutoIdInput.value == Produto.produtoid) {
     cancelarEdicao();
   }
 
@@ -583,4 +591,6 @@ btnCancelarEdicao.addEventListener("click", function() {
   buscamos os Produtos no Supabase.
 */
 
+preencherDatasAutomaticas();
+carregarCategoriasDoSelect();
 carregarProdutos();
