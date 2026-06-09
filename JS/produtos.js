@@ -54,6 +54,31 @@ function mostrarMensagem(texto, tipo) {
   mensagem.className = "mensagem " + tipo;
 }
 
+async function buscarProximoProdutoIdDisponivel() {
+  const { data, error } = await supabaseClient
+    .from("produto")
+    .select("produtoid")
+    .order("produtoid", { ascending: true });
+
+  if (error) {
+    throw error;
+  }
+
+  let proximoId = 1;
+
+  for (const produto of data) {
+    if (produto.produtoid === proximoId) {
+      proximoId++;
+    }
+
+    if (produto.produtoid > proximoId) {
+      break;
+    }
+  }
+
+  return proximoId;
+}
+
 /*
   ============================================
   FUNÇÃO PARA FORMATAR O TIPO DO Produto
@@ -326,12 +351,21 @@ async function salvarProduto() {
   const cpfCnpjProduto = cpfCnpjProdutoInput.value;
   const nomeProduto = nomeProdutoInput.value;
 
+  let proximoProdutoId;
+  try {
+    proximoProdutoId = await buscarProximoProdutoIdDisponivel();
+  } catch (error) {
+    mostrarMensagem("Erro ao calcular o próximo código: " + error.message, "erro");
+    return;
+  }
+
   /*
     Montamos o objeto que será enviado para o Supabase.
 
     As propriedades precisam ter o mesmo nome das colunas da tabela.
   */
   const novoProduto = {
+    produtoid: proximoProdutoId,
     tipo_Produto: tipoProduto,
     cpf_cnpj_Produto: cpfCnpjProduto,
     nome_Produto: nomeProduto

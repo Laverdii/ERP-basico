@@ -203,20 +203,55 @@ async function buscarItemOrcamento(produtoId) {
   return data;
 }
 
+async function buscarProximoOrcamentoIdDisponivel() {
+  const { data, error } = await supabaseClient
+    .from("orcamento")
+    .select("orcamentoid")
+    .order("orcamentoid", { ascending: true });
+
+  if (error) {
+    throw error;
+  }
+
+  let proximoId = 1;
+
+  for (const orcamento of data) {
+    if (orcamento.orcamentoid === proximoId) {
+      proximoId++;
+    }
+
+    if (orcamento.orcamentoid > proximoId) {
+      break;
+    }
+  }
+
+  return proximoId;
+}
+
 async function gerarProximoOrcamentoItemId() {
   const { data, error } = await supabaseClient
     .from("orcamento_item")
     .select("orcamentoitemid")
-    .order("orcamentoitemid", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .order("orcamentoitemid", { ascending: true });
 
   if (error) {
     mostrarMensagem("Erro ao gerar codigo do item: " + error.message, "erro");
     return null;
   }
 
-  return data ? Number(data.orcamentoitemid) + 1 : 1;
+  let proximoId = 1;
+
+  for (const item of data) {
+    if (item.orcamentoitemid === proximoId) {
+      proximoId++;
+    }
+
+    if (item.orcamentoitemid > proximoId) {
+      break;
+    }
+  }
+
+  return proximoId;
 }
 
 async function atualizarTotalOrcamento(total) {
@@ -486,7 +521,16 @@ async function atribuirOrcamentoAoCliente() {
     return;
   }
 
+  let proximoOrcamentoId;
+  try {
+    proximoOrcamentoId = await buscarProximoOrcamentoIdDisponivel();
+  } catch (error) {
+    mostrarMensagem("Erro ao calcular o próximo código: " + error.message, "erro");
+    return;
+  }
+
   const novoOrcamento = {
+    orcamentoid: proximoOrcamentoId,
     clienteid: clienteId,
     dt_orcamento: dataOrcamentoInput.value,
     dt_validade_orcamento: validadeOrcamentoInput.value,

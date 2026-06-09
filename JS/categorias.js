@@ -54,7 +54,7 @@ async function buscarProximoCategoriaIdDisponivel() {
   const { data, error } = await supabaseClient
     .from("categoria_produto")
     .select("categoriaprodutoid")
-    .order("cateogiraprodutoid", { ascending: true });
+    .order("categoriaprodutoid", { ascending: true });
 
   if (error) {
     throw error;
@@ -62,12 +62,12 @@ async function buscarProximoCategoriaIdDisponivel() {
 
   let proximoId = 1;
 
-  for (const cliente of data) {
-    if (cliente.clienteid === proximoId) {
+  for (const categoria of data) {
+    if (categoria.categoriaprodutoid === proximoId) {
       proximoId++;
     }
 
-    if (cliente.clienteid > proximoId) {
+    if (categoria.categoriaprodutoid > proximoId) {
       break;
     }
   }
@@ -383,12 +383,21 @@ async function salvarCategoria() {
     return;
   }
 
+  let proximoCategoriaId;
+  try {
+    proximoCategoriaId = await buscarProximoCategoriaIdDisponivel();
+  } catch (error) {
+    mostrarMensagem("Erro ao calcular o próximo código: " + error.message, "erro");
+    return;
+  }
+
   /*
     Montamos o objeto que será enviado para o Supabase.
 
     As propriedades precisam ter o mesmo nome das colunas da tabela.
   */
   const novoCategoria = {
+    categoriaprodutoid: proximoCategoriaId,
     ds_categoria_produto: descCategoria,
   };
 
