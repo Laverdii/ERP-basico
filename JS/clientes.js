@@ -453,14 +453,14 @@ async function atualizarNomeCliente() {
   }
 
   /*
-    Se deu certo, mostramos mensagem de sucesso.
-  */
-  mostrarMensagem("Nome atualizado com sucesso!", "sucesso");
-
-  /*
     Saímos do modo edição.
   */
   cancelarEdicao();
+
+    /*
+    Se deu certo, mostramos mensagem de sucesso.
+  */
+  mostrarMensagem("Nome atualizado com sucesso!", "sucesso");
 
   /*
     Recarregamos a tabela para mostrar o nome atualizado.
