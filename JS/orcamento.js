@@ -3,6 +3,23 @@ const SUPABASE_ANON_KEY = "sb_publishable_2tOQkWcuI6Xd06OEEG9D1w_Esm6_e9j";
 
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+// ─── Main page elements ───────────────────────────────────────────
+const mensagemPrincipal = document.getElementById("mensagemPrincipal");
+const tabelaListaOrcamentos = document.getElementById("tabelaListaOrcamentos");
+const pesquisaOrcamentosInput = document.getElementById("pesquisaOrcamentos");
+const btnNovoOrcamento = document.getElementById("btnNovoOrcamento");
+
+// ─── Modal: Atribuir Orçamento ────────────────────────────────────
+const modalAtribuirOrcamento = document.getElementById("modalAtribuirOrcamento");
+const btnFecharModalAtribuir = document.getElementById("btnFecharModalAtribuir");
+
+// ─── Modal: Ver Itens ─────────────────────────────────────────────
+const modalVerItens = document.getElementById("modalVerItens");
+const btnFecharModalVerItens = document.getElementById("btnFecharModalVerItens");
+const modalVerItensNumero = document.getElementById("modalVerItensNumero");
+const tabelaVerItens = document.getElementById("tabelaVerItens");
+
+// ─── Form elements ────────────────────────────────────────────────
 const formOrcamento = document.getElementById("formOrcamento");
 const tabelaOrcamentos = document.getElementById("tabelaOrcamento");
 const mensagem = document.getElementById("mensagem");
@@ -19,45 +36,57 @@ const btnEditarItens = document.getElementById("btnEditarItens");
 const btnExcluirOrcamento = document.getElementById("btnExcluirOrcamento");
 
 const formItemOrcamento = document.getElementById("formItemOrcamento");
-const produtoItemOrcamentoInput = document.getElementById(
-  "produtoItemOrcamento",
-);
-const quantidadeItemOrcamentoInput = document.getElementById(
-  "quantidadeItemOrcamento",
-);
+const produtoItemOrcamentoInput = document.getElementById("produtoItemOrcamento");
+const quantidadeItemOrcamentoInput = document.getElementById("quantidadeItemOrcamento");
 const produtoOriginalItemInput = document.getElementById("produtoOriginalItem");
 const btnCancelarItem = document.getElementById("btnCancelarItem");
 const btnSalvarItem = document.getElementById("btnSalvarItem");
 const thAcoes = document.getElementById("thAcoes");
-const pesquisaItemOrcamentoInput = document.getElementById(
-  "pesquisaItemOrcamento",
-);
+const pesquisaItemOrcamentoInput = document.getElementById("pesquisaItemOrcamento");
 
 const DIAS_VALIDADE_ORCAMENTO = 7;
 
 let produtos = [];
 let editandoItens = false;
 let itensOrcamentoCarregados = [];
+let listaOrcamentosCarregados = [];
+
+// ─── Utilities ───────────────────────────────────────────────────
 
 function mostrarMensagem(texto, tipo) {
   mensagem.textContent = texto;
   mensagem.className = "mensagem " + tipo;
 }
 
+function mostrarMensagemPrincipal(texto, tipo) {
+  mensagemPrincipal.textContent = texto;
+  mensagemPrincipal.className = "mensagem " + tipo;
+}
+
 function formatarDataParaInput(data) {
   const ano = data.getFullYear();
   const mes = String(data.getMonth() + 1).padStart(2, "0");
   const dia = String(data.getDate()).padStart(2, "0");
-
   return `${ano}-${mes}-${dia}`;
+}
+
+function formatarDataParaExibicao(dataStr) {
+  if (!dataStr) return "-";
+  const partes = dataStr.slice(0, 10).split("-");
+  return `${partes[2]}/${partes[1]}/${partes[0]}`;
+}
+
+function formatarMoeda(valor) {
+  return Number(valor || 0).toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
 }
 
 function preencherDatasAutomaticas() {
   const hoje = new Date();
   const validade = new Date(hoje);
-
   validade.setDate(hoje.getDate() + DIAS_VALIDADE_ORCAMENTO);
-
   dataOrcamentoInput.value = formatarDataParaInput(hoje);
   validadeOrcamentoInput.value = formatarDataParaInput(validade);
 }
@@ -67,13 +96,175 @@ function limparTabelaItens(texto) {
   tabelaOrcamentos.innerHTML = `<tr><td colspan="${colspan}">${texto}</td></tr>`;
 }
 
+// ─── Main table ───────────────────────────────────────────────────
+
+async function carregarTodosOrcamentos() {
+  tabelaListaOrcamentos.innerHTML = `<tr><td colspan="6">Carregando orçamentos...</td></tr>`;
+
+  const { data, error } = await supabaseClient
+    .from("orcamento")
+    .select(
+      "orcamentoid, dt_orcamento, dt_validade_orcamento, vl_total_orcamento, cliente(clienteid, nome_cliente)",
+    )
+    .order("orcamentoid", { ascending: true });
+
+  if (error) {
+    tabelaListaOrcamentos.innerHTML = `<tr><td colspan="6">Erro ao carregar orçamentos.</td></tr>`;
+    mostrarMensagemPrincipal(
+      "Erro ao carregar orçamentos: " + error.message,
+      "erro",
+    );
+    return;
+  }
+
+  listaOrcamentosCarregados = data || [];
+  filtrarListaOrcamentos();
+}
+
+function renderizarListaOrcamentos(lista) {
+  if (lista.length === 0) {
+    tabelaListaOrcamentos.innerHTML = `<tr><td colspan="6">Nenhum orçamento encontrado.</td></tr>`;
+    return;
+  }
+
+  tabelaListaOrcamentos.innerHTML = "";
+
+  lista.forEach(function (orcamento) {
+    const nomeCliente =
+      orcamento.cliente ? orcamento.cliente.nome_cliente : "-";
+    const linha = document.createElement("tr");
+
+    linha.innerHTML = `
+      <td>${orcamento.orcamentoid}</td>
+      <td>${nomeCliente}</td>
+      <td>${formatarDataParaExibicao(orcamento.dt_orcamento)}</td>
+      <td>${formatarDataParaExibicao(orcamento.dt_validade_orcamento)}</td>
+      <td>${formatarMoeda(orcamento.vl_total_orcamento)}</td>
+      <td></td>
+    `;
+
+    const tdAcoes = linha.querySelector("td:last-child");
+    const btnVerItens = document.createElement("button");
+    btnVerItens.textContent = "Ver itens";
+    btnVerItens.className = "btn-editar";
+    btnVerItens.type = "button";
+    btnVerItens.addEventListener("click", function () {
+      abrirModalVerItens(orcamento.orcamentoid);
+    });
+    tdAcoes.appendChild(btnVerItens);
+
+    tabelaListaOrcamentos.appendChild(linha);
+  });
+}
+
+function filtrarListaOrcamentos() {
+  const termo = pesquisaOrcamentosInput.value.toLowerCase().trim();
+
+  if (!termo) {
+    renderizarListaOrcamentos(listaOrcamentosCarregados);
+    return;
+  }
+
+  const filtrados = listaOrcamentosCarregados.filter(function (orcamento) {
+    const nomeCliente = orcamento.cliente
+      ? orcamento.cliente.nome_cliente.toLowerCase()
+      : "";
+    return (
+      String(orcamento.orcamentoid).includes(termo) ||
+      nomeCliente.includes(termo)
+    );
+  });
+
+  renderizarListaOrcamentos(filtrados);
+}
+
+// ─── Modal: Atribuir Orçamento ────────────────────────────────────
+
+function abrirModalAtribuir() {
+  formOrcamento.reset();
+  limparModoEdicao();
+  preencherDatasAutomaticas();
+  mensagem.textContent = "";
+  mensagem.className = "mensagem";
+  limparTabelaItens("Selecione um cliente para ver os itens do orçamento.");
+  modalAtribuirOrcamento.style.display = "flex";
+  document.body.style.overflow = "hidden";
+}
+
+function fecharModalAtribuir() {
+  modalAtribuirOrcamento.style.display = "none";
+  document.body.style.overflow = "";
+  carregarTodosOrcamentos();
+}
+
+// ─── Modal: Ver Itens ─────────────────────────────────────────────
+
+function abrirModalVerItens(orcamentoId) {
+  modalVerItensNumero.textContent = `#${orcamentoId}`;
+  tabelaVerItens.innerHTML = `<tr><td colspan="6">Carregando itens...</td></tr>`;
+  modalVerItens.style.display = "flex";
+  document.body.style.overflow = "hidden";
+  carregarItensParaModal(orcamentoId);
+}
+
+function fecharModalVerItens() {
+  modalVerItens.style.display = "none";
+  document.body.style.overflow = "";
+}
+
+async function carregarItensParaModal(orcamentoId) {
+  let { data, error } = await supabaseClient
+    .from("orcamento_item")
+    .select(
+      "produtoid, produtodesc, obs_produto, qt_produto, vl_unitario, vl_total",
+    )
+    .eq("orcamentoid", orcamentoId)
+    .order("produtoid", { ascending: true });
+
+  if (error) {
+    const resultado = await supabaseClient
+      .from("orcamento_item")
+      .select("produtoid, produtodesc, qt_produto, vl_unitario, vl_total")
+      .eq("orcamentoid", orcamentoId)
+      .order("produtoid", { ascending: true });
+
+    if (resultado.error) {
+      tabelaVerItens.innerHTML = `<tr><td colspan="6">Erro ao carregar itens.</td></tr>`;
+      return;
+    }
+
+    data = resultado.data;
+  }
+
+  if (!data || data.length === 0) {
+    tabelaVerItens.innerHTML = `<tr><td colspan="6">Nenhum item cadastrado para este orçamento.</td></tr>`;
+    return;
+  }
+
+  tabelaVerItens.innerHTML = "";
+
+  data.forEach(function (item) {
+    const linha = document.createElement("tr");
+    linha.innerHTML = `
+      <td>${item.produtoid}</td>
+      <td>${item.produtodesc || "-"}</td>
+      <td>${item.obs_produto || "-"}</td>
+      <td>${item.qt_produto}</td>
+      <td>${formatarMoeda(item.vl_unitario)}</td>
+      <td>${formatarMoeda(item.vl_total)}</td>
+    `;
+    tabelaVerItens.appendChild(linha);
+  });
+}
+
+// ─── Form state helpers ───────────────────────────────────────────
+
 function atualizarEstadoBotaoAtribuir() {
   if (orcamentoIdInput.value) {
     btnSalvar.textContent = "Orçamento atribuído";
     btnSalvar.disabled = true;
     return;
   }
-
   btnSalvar.textContent = "Atribuir orçamento";
   btnSalvar.disabled = !clienteOrcamentoInput.value;
 }
@@ -110,7 +301,6 @@ function preencherFormularioComOrcamento(orcamento) {
     ? orcamento.dt_validade_orcamento.slice(0, 10)
     : "";
   valorTotalOrcamentoInput.value = orcamento.vl_total_orcamento || "";
-
   btnCancelarEdicao.style.display = "none";
   atualizarEstadoBotaoAtribuir();
   atualizarEstadoEdicaoItens();
@@ -138,6 +328,8 @@ function buscarProduto(produtoId) {
   });
 }
 
+// ─── Data loading ─────────────────────────────────────────────────
+
 async function carregarClientesDoSelect() {
   const { data, error } = await supabaseClient
     .from("cliente")
@@ -145,18 +337,18 @@ async function carregarClientesDoSelect() {
     .order("nome_cliente", { ascending: true });
 
   if (error) {
-    mostrarMensagem("Erro ao carregar clientes: " + error.message, "erro");
+    mostrarMensagemPrincipal(
+      "Erro ao carregar clientes: " + error.message,
+      "erro",
+    );
     return;
   }
 
   clienteOrcamentoInput.innerHTML = `<option value="">Selecione</option>`;
-
   data.forEach(function (cliente) {
     const option = document.createElement("option");
-
     option.value = cliente.clienteid;
     option.textContent = cliente.nome_cliente;
-
     clienteOrcamentoInput.appendChild(option);
   });
 }
@@ -168,19 +360,19 @@ async function carregarProdutosDoSelect() {
     .order("ds_produto", { ascending: true });
 
   if (error) {
-    mostrarMensagem("Erro ao carregar produtos: " + error.message, "erro");
+    mostrarMensagemPrincipal(
+      "Erro ao carregar produtos: " + error.message,
+      "erro",
+    );
     return;
   }
 
   produtos = data;
   produtoItemOrcamentoInput.innerHTML = `<option value="">Selecione</option>`;
-
   produtos.forEach(function (produto) {
     const option = document.createElement("option");
-
     option.value = produto.produtoid;
     option.textContent = produto.ds_produto;
-
     produtoItemOrcamentoInput.appendChild(option);
   });
 }
@@ -239,12 +431,10 @@ async function buscarProximoOrcamentoIdDisponivel() {
   }
 
   let proximoId = 1;
-
   for (const orcamento of data) {
     if (orcamento.orcamentoid === proximoId) {
       proximoId++;
     }
-
     if (orcamento.orcamentoid > proximoId) {
       break;
     }
@@ -265,12 +455,10 @@ async function gerarProximoOrcamentoItemId() {
   }
 
   let proximoId = 1;
-
   for (const item of data) {
     if (item.orcamentoitemid === proximoId) {
       proximoId++;
     }
-
     if (item.orcamentoitemid > proximoId) {
       break;
     }
@@ -299,6 +487,8 @@ async function atualizarTotalOrcamento(total) {
   }
 }
 
+// ─── Items table (inside modal) ───────────────────────────────────
+
 function renderizarItensOrcamento(itens) {
   if (itens.length === 0) {
     limparTabelaItens("Nenhum item encontrado para este orçamento.");
@@ -309,7 +499,6 @@ function renderizarItensOrcamento(itens) {
 
   itens.forEach(function (item) {
     const linha = document.createElement("tr");
-
     linha.innerHTML = `
       <td>${item.produtoid}</td>
       <td>${item.produtodesc}</td>
@@ -483,11 +672,9 @@ async function salvarItemOrcamento(evento) {
       .eq("produtoid", item.produtoid);
   } else {
     const proximoOrcamentoItemId = await gerarProximoOrcamentoItemId();
-
     if (!proximoOrcamentoItemId) {
       return;
     }
-
     resultado = await supabaseClient.from("orcamento_item").insert({
       orcamentoitemid: proximoOrcamentoItemId,
       ...item,
@@ -511,7 +698,6 @@ async function excluirItemOrcamento(item) {
   const confirmou = confirm(
     "Tem certeza que deseja remover este item do orçamento?",
   );
-
   if (!confirmou) {
     return;
   }
@@ -540,14 +726,16 @@ async function excluirOrcamento() {
   const clienteSelecionado = clienteOrcamentoInput.value;
 
   if (!orcamentoId) {
-    mostrarMensagem("Selecione um cliente com orçamento para excluir.", "erro");
+    mostrarMensagem(
+      "Selecione um cliente com orçamento para excluir.",
+      "erro",
+    );
     return;
   }
 
   const confirmou = confirm(
     "Tem certeza que deseja excluir este orçamento e todos os seus itens?",
   );
-
   if (!confirmou) {
     return;
   }
@@ -600,7 +788,10 @@ async function atribuirOrcamentoAoCliente() {
   const clienteId = clienteOrcamentoInput.value;
 
   if (!clienteId) {
-    mostrarMensagem("Selecione um cliente para atribuir o orçamento.", "erro");
+    mostrarMensagem(
+      "Selecione um cliente para atribuir o orçamento.",
+      "erro",
+    );
     return;
   }
 
@@ -655,7 +846,6 @@ async function atribuirOrcamentoAoCliente() {
 
 async function selecionarCliente() {
   const clienteId = clienteOrcamentoInput.value;
-
   pesquisaItemOrcamentoInput.value = "";
   limparModoEdicao();
   preencherDatasAutomaticas();
@@ -679,15 +869,12 @@ async function selecionarCliente() {
 
 function cancelarEdicao() {
   const clienteSelecionado = clienteOrcamentoInput.value;
-
   formOrcamento.reset();
   limparModoEdicao();
   preencherDatasAutomaticas();
-
   clienteOrcamentoInput.value = clienteSelecionado;
   mensagem.textContent = "";
   mensagem.className = "mensagem";
-
   selecionarCliente();
 }
 
@@ -698,6 +885,35 @@ function alternarEdicaoItens() {
   carregarItensOrcamento();
 }
 
+// ─── Event listeners ──────────────────────────────────────────────
+
+btnNovoOrcamento.addEventListener("click", abrirModalAtribuir);
+btnFecharModalAtribuir.addEventListener("click", fecharModalAtribuir);
+btnFecharModalVerItens.addEventListener("click", fecharModalVerItens);
+
+modalAtribuirOrcamento.addEventListener("click", function (e) {
+  if (e.target === modalAtribuirOrcamento) {
+    fecharModalAtribuir();
+  }
+});
+
+modalVerItens.addEventListener("click", function (e) {
+  if (e.target === modalVerItens) {
+    fecharModalVerItens();
+  }
+});
+
+document.addEventListener("keydown", function (e) {
+  if (e.key === "Escape") {
+    if (modalVerItens.style.display !== "none") {
+      fecharModalVerItens();
+    } else if (modalAtribuirOrcamento.style.display !== "none") {
+      fecharModalAtribuir();
+    }
+  }
+});
+
+pesquisaOrcamentosInput.addEventListener("input", filtrarListaOrcamentos);
 pesquisaItemOrcamentoInput.addEventListener("input", filtrarItensOrcamento);
 
 formOrcamento.addEventListener("submit", async function (evento) {
@@ -720,9 +936,8 @@ btnEditarItens.addEventListener("click", alternarEdicaoItens);
 btnExcluirOrcamento.addEventListener("click", excluirOrcamento);
 clienteOrcamentoInput.addEventListener("change", selecionarCliente);
 
-preencherDatasAutomaticas();
-atualizarEstadoBotaoAtribuir();
-atualizarEstadoEdicaoItens();
+// ─── Init ─────────────────────────────────────────────────────────
+
 carregarClientesDoSelect();
 carregarProdutosDoSelect();
-carregarItensOrcamento();
+carregarTodosOrcamentos();
