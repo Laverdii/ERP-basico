@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Cadastro de Usuários</title>
+    <title>Usuários</title>
     <link rel="stylesheet" href="../style.css" />
     <link rel="icon" href="../img/favicon.ico" sizes="any" />
   </head>
@@ -20,59 +20,17 @@
         <li><a href="telalogin.html">Sair</a></li>
       </ul>
     </nav>
-    <main class="container">
-      <h1>Cadastro de Usuários</h1>
-      <form id="formUsuario" class="form-usuario">
-        <div class="campo">
-          <label for="usuarioId">Código:</label>
-          <input
-            type="text"
-            id="usuarioId"
-            name="usuarioId"
-            readonly
-            placeholder="Gerado automaticamente"
-          />
-        </div>
 
-        <div class="campo">
-          <label for="nomeUsuario">Nome do usuário:</label>
-          <input
-            type="text"
-            id="nomeUsuario"
-            name="nomeUsuario"
-            required
-            placeholder="Digite o nome do usuário"
-          />
-        </div>
+    <main class="container container--wide">
+      <div class="cabecalho-pagina">
+        <h1>Usuários</h1>
+        <button type="button" id="btnNovoUsuario" class="btn-salvar">
+          Novo Usuário
+        </button>
+      </div>
 
-        <div class="campo nome">
-          <label for="senhaUsuario">Senha:</label>
-          <input
-            type="password"
-            id="senhaUsuario"
-            name="senhaUsuario"
-            required
-            placeholder="Digite a senha"
-          />
-        </div>
+      <p id="mensagemPrincipal" class="mensagem"></p>
 
-        <div class="acoes">
-          <button type="reset" class="btn-limpar">Limpar</button>
-          <button
-            type="button"
-            id="btnCancelarEdicao"
-            class="btn-cancelar-edicao"
-          >
-            Cancelar edição
-          </button>
-          <button type="submit" id="btnSalvar" class="btn-salvar">
-            Salvar
-          </button>
-        </div>
-      </form>
-
-      <p id="mensagem" class="mensagem"></p>
-      <h2>Usuários Cadastrados</h2>
       <div class="barra-pesquisa">
         <div class="barra-pesquisa-wrapper">
           <input
@@ -103,8 +61,67 @@
           </tbody>
         </table>
       </div>
+
+      <!-- ── Modal: Novo / Editar Usuário ─────────────────────────── -->
+      <div id="modalUsuario" class="modal-overlay" style="display: none">
+        <div class="modal-box">
+          <div class="modal-header">
+            <h2 id="modalUsuarioTitulo">Novo Usuário</h2>
+            <button type="button" id="btnFecharModalUsuario" class="btn-fechar-modal">
+              &times;
+            </button>
+          </div>
+
+          <form id="formUsuario" class="form-usuario">
+            <div class="campo">
+              <label for="usuarioId">Código:</label>
+              <input
+                type="text"
+                id="usuarioId"
+                name="usuarioId"
+                readonly
+                placeholder="Gerado automaticamente"
+              />
+            </div>
+
+            <div class="campo">
+              <label for="nomeUsuario">Nome do usuário:</label>
+              <input
+                type="text"
+                id="nomeUsuario"
+                name="nomeUsuario"
+                required
+                placeholder="Digite o nome do usuário"
+              />
+            </div>
+
+            <div class="campo">
+              <label for="senhaUsuario">Senha:</label>
+              <input
+                type="password"
+                id="senhaUsuario"
+                name="senhaUsuario"
+                required
+                placeholder="Digite a senha"
+              />
+            </div>
+
+            <div class="acoes">
+              <button type="button" id="btnCancelarModal" class="btn-limpar">
+                Cancelar
+              </button>
+              <button type="submit" id="btnSalvar" class="btn-salvar">
+                Salvar
+              </button>
+            </div>
+          </form>
+
+          <p id="mensagem" class="mensagem"></p>
+        </div>
+      </div>
+
+      <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+      <script src="../JS/usuarios.js"></script>
     </main>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="../JS/usuarios.js"></script>
   </body>
 </html>

@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Cadastro de categorias</title>
+    <title>Categorias</title>
     <link rel="stylesheet" href="../style.css" />
     <link rel="icon" href="../img/favicon.ico" sizes="any" />
   </head>
@@ -13,62 +13,24 @@
       <ul>
         <li><a href="home.html">Ínicio</a></li>
         <li><a href="cadastrodeclientes.html">Clientes</a></li>
-        <li>
-          <a class="ativo" href="cadastrodecategorias.html">Categorias</a>
-        </li>
+        <li><a class="ativo" href="cadastrodecategorias.html">Categorias</a></li>
         <li><a href="cadastrodeprodutos.html">Produtos</a></li>
         <li><a href="orcamento.html">Orçamento</a></li>
         <li><a href="cadastrodeusuarios.html">Usuários</a></li>
         <li><a href="telalogin.html">Sair</a></li>
       </ul>
     </nav>
-    <main class="container">
-      <h1>Cadastro de Categorias</h1>
-      <form id="formCategoria" class="form-categoria">
-        <!-- O campo "Código" é gerado automaticamente, por isso é readonly. -->
-        <div class="campo">
-          <label for="CategoriaId">Código da categoria:</label>
-          <input
-            type="text"
-            id="CategoriaId"
-            name="codigo"
-            readonly
-            placeholder="Gerado automaticamente"
-          />
-        </div>
 
-        <div class="campo">
-          <label for="descCategoria">Descrição:</label>
-          <input
-            type="text"
-            id="descCategoria"
-            name="descricao"
-            required
-            placeholder="Digite a descrição da categoria"
-          />
-        </div>
+    <main class="container container--wide">
+      <div class="cabecalho-pagina">
+        <h1>Categorias</h1>
+        <button type="button" id="btnNovaCategoria" class="btn-salvar">
+          Nova Categoria
+        </button>
+      </div>
 
-        <!-- Botões do formulário -->
-        <div class="acoes">
-          <button type="reset" class="btn-limpar">Limpar</button>
+      <p id="mensagemPrincipal" class="mensagem"></p>
 
-          <button
-            type="button"
-            id="btnCancelarEdicao"
-            class="btn-cancelar-edicao"
-          >
-            Cancelar edição
-          </button>
-
-          <button type="submit" id="btnSalvar" class="btn-salvar">
-            Salvar
-          </button>
-        </div>
-      </form>
-
-      <!-- Aqui aparecerão mensagens como: "Categoria salva com sucesso" "Erro ao salvar categoria" "Categoria excluída com sucesso" -->
-      <p id="mensagem" class="mensagem"></p>
-      <h2>Categorias Cadastradas</h2>
       <div class="barra-pesquisa">
         <div class="barra-pesquisa-wrapper">
           <input
@@ -83,7 +45,6 @@
         <span class="aviso-min-chars" id="avisoCategoria">Digite ao menos 4 caracteres para buscar por descrição.</span>
       </div>
 
-      <!-- Tabela onde as categorias serão exibidos -->
       <div class="table-wrapper">
         <table>
           <thead>
@@ -93,23 +54,63 @@
               <th>Ações</th>
             </tr>
           </thead>
-
-          <!-- O tbody começa com uma mensagem.
-             Depois o JavaScript substitui esse conteúdo pelos dados do Supabase. -->
           <tbody id="tabelaCategorias">
             <tr>
-              <td colspan="2">Carregando categorias...</td>
+              <td colspan="3">Carregando categorias...</td>
             </tr>
           </tbody>
         </table>
       </div>
-      <!-- Biblioteca JavaScript do Supabase. Ela precisa ser carregada antes do nosso .js. -->
-      <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-      <!-- Nosso arquivo JavaScript separado -->
+      <!-- ── Modal: Nova / Editar Categoria ───────────────────────── -->
+      <div id="modalCategoria" class="modal-overlay" style="display: none">
+        <div class="modal-box">
+          <div class="modal-header">
+            <h2 id="modalCategoriaTitulo">Nova Categoria</h2>
+            <button type="button" id="btnFecharModalCategoria" class="btn-fechar-modal">
+              &times;
+            </button>
+          </div>
+
+          <form id="formCategoria" class="form-categoria">
+            <div class="campo">
+              <label for="CategoriaId">Código da categoria:</label>
+              <input
+                type="text"
+                id="CategoriaId"
+                name="codigo"
+                readonly
+                placeholder="Gerado automaticamente"
+              />
+            </div>
+
+            <div class="campo">
+              <label for="descCategoria">Descrição:</label>
+              <input
+                type="text"
+                id="descCategoria"
+                name="descricao"
+                required
+                placeholder="Digite a descrição da categoria"
+              />
+            </div>
+
+            <div class="acoes">
+              <button type="button" id="btnCancelarModal" class="btn-limpar">
+                Cancelar
+              </button>
+              <button type="submit" id="btnSalvar" class="btn-salvar">
+                Salvar
+              </button>
+            </div>
+          </form>
+
+          <p id="mensagem" class="mensagem"></p>
+        </div>
+      </div>
+
+      <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
       <script src="../JS/categorias.js"></script>
     </main>
   </body>
 </html>
-
-<!-- FALTA O JS COM OS BOTEOES EXLUIR E EDITAR-->

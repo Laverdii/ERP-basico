@@ -54,7 +54,7 @@ body {
 }
 
 .container {
-  max-width: 800px;
+  max-width: 1200px;
   margin: 0 auto;
   background: white;
   padding: 25px;
@@ -209,6 +209,13 @@ button {
   background: #dc3545;
   color: white;
   padding: 6px 10px;
+}
+
+.btn-imprimir {
+  background: #17a2b8;
+  color: white;
+  padding: 6px 10px;
+  margin-right: 5px;
 }
 
 .btn-cancelar-edicao {
@@ -532,6 +539,22 @@ tr.linha-clicavel {
 
 tr.linha-clicavel:hover td {
   background-color: #eef5fb;
+}
+
+/* ─── Produto inativo ────────────────────────────────────────────── */
+tr.produto-inativo td {
+  background-color: #fff0f0;
+  color: #c0392b;
+}
+
+tr.produto-inativo:hover td {
+  background-color: #ffe0e0;
+}
+
+/* ─── Orçamento vencido ──────────────────────────────────────────── */
+.validade-vencida {
+  color: #c0392b;
+  font-weight: 600;
 }
 
 /* ─── Modal footer total ─────────────────────────────────────────── */

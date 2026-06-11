@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Cadastro de produtos</title>
+    <title>Produtos</title>
     <link rel="stylesheet" href="../style.css" />
     <link rel="icon" href="../img/favicon.ico" sizes="any" />
   </head>
@@ -20,98 +20,16 @@
         <li><a href="telalogin.html">Sair</a></li>
       </ul>
     </nav>
-    <main class="container">
-      <h1>Cadastro de Produtos</h1>
-      <form id="formProduto" class="form-produto">
-        <!-- O campo "Código" é gerado automaticamente, por isso é readonly. -->
-        <div class="campo">
-          <label for="produtoId">Código:</label>
-          <input
-            type="text"
-            id="produtoId"
-            name="produtoId"
-            readonly
-            placeholder="Gerado automaticamente"
-          />
-        </div>
 
-        <div class="campo">
-          <label for="categoriaProduto">Categoria:</label>
-          <select id="categoriaProduto" name="categoriaProduto" required>
-            <option value="">Selecione</option>
-            <!-- As opções de categoria serão carregadas dinamicamente pelo JavaScript -->
-          </select>
-        </div>
+    <main class="container container--wide">
+      <div class="cabecalho-pagina">
+        <h1>Produtos</h1>
+        <button type="button" id="btnNovoProduto" class="btn-salvar">
+          Novo Produto
+        </button>
+      </div>
 
-        <div class="campo">
-          <label for="descProduto">Descrição:</label>
-          <input
-            type="text"
-            id="descProduto"
-            name="descProduto"
-            required
-            placeholder="Digite a descrição do produto"
-          />
-        </div>
-
-        <div class="campo">
-          <label for="obsProduto">Observação:</label>
-          <input
-            type="text"
-            id="obsProduto"
-            name="obsProduto"
-            required
-            placeholder="Digite uma Observação ao produto"
-          />
-        </div>
-
-        <div class="campo">
-          <label for="valorProduto">Valor de venda:</label>
-          <input
-            type="number"
-            id="valorProduto"
-            name="valorProduto"
-            step="0.01"
-            required
-            placeholder="Digite o preço do produto"
-          />
-        </div>
-
-        <div class="campo">
-          <label for="dataCadastro">Data do cadastro:</label>
-          <input type="date" id="dataCadastro" name="dataCadastro" required />
-        </div>
-
-        <div class="campo">
-          <label for="statusProduto">Status:</label>
-          <select id="statusProduto" name="statusProduto" required>
-            <option value="">Selecione</option>
-            <option value="ATIVO">Ativo</option>
-            <option value="INATIVO">Inativo</option>
-          </select>
-        </div>
-
-        <!-- Botões do formulário -->
-        <div class="acoes">
-          <button type="reset" class="btn-limpar">Limpar</button>
-
-          <button
-            type="button"
-            id="btnCancelarEdicao"
-            class="btn-cancelar-edicao"
-          >
-            Cancelar edição
-          </button>
-
-          <button type="submit" id="btnSalvar" class="btn-salvar">
-            Salvar
-          </button>
-        </div>
-      </form>
-
-      <!-- Aqui aparecerão mensagens como: "Produto salvo com sucesso" "Erro ao salvar produto" "Produto excluído com sucesso" -->
-      <p id="mensagem" class="mensagem"></p>
-      <h2>Produtos Cadastrados</h2>
+      <p id="mensagemPrincipal" class="mensagem"></p>
 
       <div class="painel-filtros">
         <div class="filtros-grade">
@@ -146,12 +64,8 @@
           <div class="filtro-campo">
             <label>Status</label>
             <div class="filtro-pills">
-              <button type="button" class="pill" data-status="ATIVO">
-                Ativo
-              </button>
-              <button type="button" class="pill" data-status="INATIVO">
-                Inativo
-              </button>
+              <button type="button" class="pill" data-status="ATIVO">Ativo</button>
+              <button type="button" class="pill" data-status="INATIVO">Inativo</button>
             </div>
           </div>
           <div class="filtros-acoes">
@@ -166,7 +80,6 @@
         </div>
       </div>
 
-      <!-- Tabela onde os produtos serão exibidos -->
       <div class="table-wrapper">
         <table>
           <thead>
@@ -181,9 +94,6 @@
               <th>Ações</th>
             </tr>
           </thead>
-
-          <!-- O tbody começa com uma mensagem.
-             Depois o JavaScript substitui esse conteúdo pelos dados do Supabase. -->
           <tbody id="tabelaProdutos">
             <tr>
               <td colspan="8">Carregando produtos...</td>
@@ -191,13 +101,99 @@
           </tbody>
         </table>
       </div>
-      <!-- Biblioteca JavaScript do Supabase. Ela precisa ser carregada antes do nosso .js. -->
-      <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-      <!-- Nosso arquivo JavaScript separado -->
+      <!-- ── Modal: Novo / Editar Produto ─────────────────────────── -->
+      <div id="modalProduto" class="modal-overlay" style="display: none">
+        <div class="modal-box">
+          <div class="modal-header">
+            <h2 id="modalProdutoTitulo">Novo Produto</h2>
+            <button type="button" id="btnFecharModalProduto" class="btn-fechar-modal">
+              &times;
+            </button>
+          </div>
+
+          <form id="formProduto" class="form-produto">
+            <div class="campo">
+              <label for="produtoId">Código:</label>
+              <input
+                type="text"
+                id="produtoId"
+                name="produtoId"
+                readonly
+                placeholder="Gerado automaticamente"
+              />
+            </div>
+
+            <div class="campo">
+              <label for="categoriaProduto">Categoria:</label>
+              <select id="categoriaProduto" name="categoriaProduto" required>
+                <option value="">Selecione</option>
+              </select>
+            </div>
+
+            <div class="campo">
+              <label for="descProduto">Descrição:</label>
+              <input
+                type="text"
+                id="descProduto"
+                name="descProduto"
+                required
+                placeholder="Digite a descrição do produto"
+              />
+            </div>
+
+            <div class="campo">
+              <label for="obsProduto">Observação:</label>
+              <input
+                type="text"
+                id="obsProduto"
+                name="obsProduto"
+                required
+                placeholder="Digite uma observação ao produto"
+              />
+            </div>
+
+            <div class="campo">
+              <label for="valorProduto">Valor de venda:</label>
+              <input
+                type="text"
+                id="valorProduto"
+                name="valorProduto"
+                required
+                placeholder="R$ 0,00"
+                inputmode="numeric"
+              />
+            </div>
+
+            <div class="campo">
+              <label for="dataCadastro">Data do cadastro:</label>
+              <input type="date" id="dataCadastro" name="dataCadastro" required />
+            </div>
+
+            <div class="campo">
+              <label for="statusProduto">Status:</label>
+              <select id="statusProduto" name="statusProduto" required>
+                <option value="ATIVO">Ativo</option>
+                <option value="INATIVO">Inativo</option>
+              </select>
+            </div>
+
+            <div class="acoes">
+              <button type="button" id="btnCancelarModal" class="btn-limpar">
+                Cancelar
+              </button>
+              <button type="submit" id="btnSalvar" class="btn-salvar">
+                Salvar
+              </button>
+            </div>
+          </form>
+
+          <p id="mensagem" class="mensagem"></p>
+        </div>
+      </div>
+
+      <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
       <script src="../JS/produtos.js"></script>
     </main>
   </body>
 </html>
-
-<!-- FALTA O JS COM OS BOTEOES EXLUIR E EDITAR-->

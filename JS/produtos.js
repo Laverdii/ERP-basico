@@ -1,25 +1,19 @@
 const SUPABASE_URL = "https://ouuwgxztehzshrtjdehb.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_2tOQkWcuI6Xd06OEEG9D1w_Esm6_e9j";
 
-/*
-  Cria o Produto de conexão com o Supabase.
-
-  A variável "supabase" vem da biblioteca que carregamos no HTML:
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-*/
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-/*
-  ============================================
-  PEGANDO ELEMENTOS DO HTML
-  ============================================
-
-  Usamos document.getElementById para acessar elementos da tela.
-  Assim conseguimos ler valores, alterar textos e criar ações.
-*/
-
-const formProduto = document.getElementById("formProduto");
+// ─── Main page ────────────────────────────────────────────────────
+const mensagemPrincipal = document.getElementById("mensagemPrincipal");
 const tabelaProdutos = document.getElementById("tabelaProdutos");
+const btnNovoProduto = document.getElementById("btnNovoProduto");
+
+// ─── Modal ────────────────────────────────────────────────────────
+const modalProduto = document.getElementById("modalProduto");
+const modalProdutoTitulo = document.getElementById("modalProdutoTitulo");
+const btnFecharModalProduto = document.getElementById("btnFecharModalProduto");
+const btnCancelarModal = document.getElementById("btnCancelarModal");
+const formProduto = document.getElementById("formProduto");
 const mensagem = document.getElementById("mensagem");
 
 const produtoIdInput = document.getElementById("produtoId");
@@ -29,10 +23,9 @@ const obsProdutoInput = document.getElementById("obsProduto");
 const valorProdutoInput = document.getElementById("valorProduto");
 const dataCadastroInput = document.getElementById("dataCadastro");
 const statusProdutoInput = document.getElementById("statusProduto");
-
 const btnSalvar = document.getElementById("btnSalvar");
-const btnCancelarEdicao = document.getElementById("btnCancelarEdicao");
 
+// ─── Filters ──────────────────────────────────────────────────────
 const filtroCodProdutoInput = document.getElementById("filtroCodProduto");
 const filtroCodCategoriaInput = document.getElementById("filtroCodCategoria");
 const filtroDescProdutoInput = document.getElementById("filtroDescProduto");
@@ -47,23 +40,64 @@ const avisoObsProduto = document.getElementById("avisoObsProduto");
 let produtosCarregados = [];
 const statusSelecionados = new Set();
 
-/*
-  ============================================
-  FUNÇÃO PARA MOSTRAR MENSAGEM NA TELA
-  ============================================
+// ─── Utilities ───────────────────────────────────────────────────
 
-  Essa função recebe:
-  - texto: mensagem que será exibida.
-  - tipo: classe CSS aplicada na mensagem.
+function formatarMoeda(valor) {
+  if (valor === null || valor === undefined || valor === "") return "-";
+  const numero = parseFloat(valor);
+  if (isNaN(numero)) return "-";
+  return "R$ " + numero.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
 
-  Exemplo:
-  mostrarMensagem("Produto salvo com sucesso!", "sucesso");
-  mostrarMensagem("Erro ao salvar Produto.", "erro");
-*/
+function numeroParaMascara(valor) {
+  if (valor === null || valor === undefined || valor === "") return "";
+  const numero = parseFloat(valor);
+  if (isNaN(numero)) return "";
+  return "R$ " + numero.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function extrairValorNumerico(valorMascarado) {
+  const limpo = valorMascarado.replace(/[R$\s.]/g, "").replace(",", ".");
+  return parseFloat(limpo) || 0;
+}
+
+function aplicarMascaraMoeda(e) {
+  const digits = e.target.value.replace(/\D/g, "").slice(-13);
+  if (!digits) {
+    e.target.value = "";
+    return;
+  }
+  const centavos = parseInt(digits, 10);
+  const reais = Math.floor(centavos / 100);
+  const cents = centavos % 100;
+  e.target.value = "R$ " + reais.toLocaleString("pt-BR") + "," + String(cents).padStart(2, "0");
+}
 
 function mostrarMensagem(texto, tipo) {
   mensagem.textContent = texto;
   mensagem.className = "mensagem " + tipo;
+}
+
+function mostrarMensagemPrincipal(texto, tipo) {
+  mensagemPrincipal.textContent = texto;
+  mensagemPrincipal.className = "mensagem " + tipo;
+}
+
+function formatarDataParaInput(data) {
+  const ano = data.getFullYear();
+  const mes = String(data.getMonth() + 1).padStart(2, "0");
+  const dia = String(data.getDate()).padStart(2, "0");
+  return `${ano}-${mes}-${dia}`;
+}
+
+function formatarDataParaExibicao(dataStr) {
+  if (!dataStr) return "-";
+  const partes = dataStr.slice(0, 10).split("-");
+  return `${partes[2]}/${partes[1]}/${partes[0]}`;
+}
+
+function preencherDatasAutomaticas() {
+  dataCadastroInput.value = formatarDataParaInput(new Date());
 }
 
 async function buscarProximoProdutoIdDisponivel() {
@@ -71,58 +105,14 @@ async function buscarProximoProdutoIdDisponivel() {
     .from("produto")
     .select("produtoid")
     .order("produtoid", { ascending: true });
-
-  if (error) {
-    throw error;
-  }
-
+  if (error) throw error;
   let proximoId = 1;
-
   for (const produto of data) {
-    if (produto.produtoid === proximoId) {
-      proximoId++;
-    }
-
-    if (produto.produtoid > proximoId) {
-      break;
-    }
+    if (produto.produtoid === proximoId) proximoId++;
+    if (produto.produtoid > proximoId) break;
   }
-
   return proximoId;
 }
-
-function formatarDataParaInput(data) {
-  const ano = data.getFullYear();
-  const mes = String(data.getMonth() + 1).padStart(2, "0");
-  const dia = String(data.getDate()).padStart(2, "0");
-
-  return `${ano}-${mes}-${dia}`;
-}
-
-function preencherDatasAutomaticas() {
-  const hoje = new Date();
-
-  dataCadastroInput.value = formatarDataParaInput(hoje);
-}
-
-/*
-  ============================================
-  CARREGAR ProdutoS
-  ============================================
-
-  Essa função busca os Produtos no Supabase e monta as linhas da tabela.
-
-  Observação importante:
-  A tabela foi criada assim:
-
-  CREATE TABLE Produto (...)
-
-  Como não foram usadas aspas no nome da tabela,
-  no PostgreSQL o nome normalmente fica em minúsculo: Produto.
-
-  Por isso usamos:
-  .from("Produto")
-*/
 
 async function carregarCategoriasDoSelect() {
   const { data, error } = await supabaseClient
@@ -131,45 +121,42 @@ async function carregarCategoriasDoSelect() {
     .order("categoriaprodutoid", { ascending: true });
 
   if (error) {
-    mostrarMensagem("Erro ao carregar categorias: " + error.message, "erro");
+    mostrarMensagemPrincipal("Erro ao carregar categorias: " + error.message, "erro");
     return;
   }
 
   categoriaProdutoInput.innerHTML = `<option value="">Selecione</option>`;
-
   data.forEach(function (categoria) {
     const option = document.createElement("option");
-
     option.value = categoria.categoriaprodutoid;
     option.textContent = categoria.ds_categoria_produto;
-
     categoriaProdutoInput.appendChild(option);
   });
 }
 
+// ─── Main table ───────────────────────────────────────────────────
+
 function renderizarProdutos(produtos) {
   if (produtos.length === 0) {
-    tabelaProdutos.innerHTML = `
-      <tr>
-        <td colspan="8">Nenhum produto encontrado.</td>
-      </tr>
-    `;
+    tabelaProdutos.innerHTML = `<tr><td colspan="8">Nenhum produto encontrado.</td></tr>`;
     return;
   }
 
   tabelaProdutos.innerHTML = "";
 
-  produtos.forEach(function (Produto) {
+  produtos.forEach(function (produto) {
     const linha = document.createElement("tr");
+    const inativo = produto.status_produto === "INATIVO";
+    linha.className = "linha-clicavel" + (inativo ? " produto-inativo" : "");
 
     linha.innerHTML = `
-      <td>${Produto.produtoid}</td>
-      <td>${Produto.categoriaprodutoid}</td>
-      <td>${Produto.ds_produto}</td>
-      <td>${Produto.obs_produto}</td>
-      <td>${Produto.vl_venda_produto}</td>
-      <td>${Produto.dt_cadastro_produto ? Produto.dt_cadastro_produto.substring(0, 10) : ""}</td>
-      <td>${Produto.status_produto}</td>
+      <td>${produto.produtoid}</td>
+      <td>${produto.categoriaprodutoid}</td>
+      <td>${produto.ds_produto}</td>
+      <td>${produto.obs_produto}</td>
+      <td>${formatarMoeda(produto.vl_venda_produto)}</td>
+      <td>${formatarDataParaExibicao(produto.dt_cadastro_produto)}</td>
+      <td>${produto.status_produto}</td>
       <td class="coluna-acoes"></td>
     `;
 
@@ -178,7 +165,7 @@ function renderizarProdutos(produtos) {
     botaoEditar.className = "btn-editar";
     botaoEditar.type = "button";
     botaoEditar.addEventListener("click", function () {
-      prepararEdicao(Produto);
+      prepararEdicao(produto);
     });
 
     const botaoExcluir = document.createElement("button");
@@ -186,7 +173,7 @@ function renderizarProdutos(produtos) {
     botaoExcluir.className = "btn-excluir";
     botaoExcluir.type = "button";
     botaoExcluir.addEventListener("click", function () {
-      excluirProduto(Produto);
+      excluirProduto(produto);
     });
 
     linha.querySelector(".coluna-acoes").appendChild(botaoEditar);
@@ -226,20 +213,11 @@ function filtrarProdutos() {
   const obs = filtroObsProdutoInput.value.toLowerCase().trim();
 
   const filtrados = produtosCarregados.filter(function (produto) {
-    if (codProduto && !String(produto.produtoid).includes(codProduto))
-      return false;
-    if (
-      codCategoria &&
-      !String(produto.categoriaprodutoid).includes(codCategoria)
-    )
-      return false;
+    if (codProduto && !String(produto.produtoid).includes(codProduto)) return false;
+    if (codCategoria && !String(produto.categoriaprodutoid).includes(codCategoria)) return false;
     if (desc && !produto.ds_produto.toLowerCase().includes(desc)) return false;
     if (obs && !produto.obs_produto.toLowerCase().includes(obs)) return false;
-    if (
-      statusSelecionados.size > 0 &&
-      !statusSelecionados.has(produto.status_produto)
-    )
-      return false;
+    if (statusSelecionados.size > 0 && !statusSelecionados.has(produto.status_produto)) return false;
     return true;
   });
 
@@ -255,28 +233,18 @@ function filtrarProdutos() {
 async function carregarProdutos() {
   const { data, error } = await supabaseClient
     .from("produto")
-    .select(
-      "produtoid, categoriaprodutoid, ds_produto, obs_produto, vl_venda_produto, dt_cadastro_produto, status_produto",
-    )
+    .select("produtoid, categoriaprodutoid, ds_produto, obs_produto, vl_venda_produto, dt_cadastro_produto, status_produto")
     .order("produtoid", { ascending: true });
 
   if (error) {
-    tabelaProdutos.innerHTML = `
-      <tr>
-        <td colspan="8">Erro ao carregar Produtos.</td>
-      </tr>
-    `;
-    mostrarMensagem("Erro ao buscar produtos: " + error.message, "erro");
+    tabelaProdutos.innerHTML = `<tr><td colspan="8">Erro ao carregar Produtos.</td></tr>`;
+    mostrarMensagemPrincipal("Erro ao buscar produtos: " + error.message, "erro");
     return;
   }
 
   if (data.length === 0) {
     produtosCarregados = [];
-    tabelaProdutos.innerHTML = `
-      <tr>
-        <td colspan="8">Nenhum Produto cadastrado.</td>
-      </tr>
-    `;
+    tabelaProdutos.innerHTML = `<tr><td colspan="8">Nenhum Produto cadastrado.</td></tr>`;
     contadorResultados.textContent = "0 produtos";
     return;
   }
@@ -285,103 +253,49 @@ async function carregarProdutos() {
   filtrarProdutos();
 }
 
-/*
-  ============================================
-  PREPARAR EDIÇÃO
-  ============================================
+// ─── Modal ────────────────────────────────────────────────────────
 
-  Essa função é chamada quando o usuário clica no botão Editar.
-
-  Ela pega os dados do Produto selecionado e joga para dentro do formulário.
-*/
-
-function prepararEdicao(Produto) {
-  /*
-    Preenche o campo código.
-    Esse campo é importante porque usaremos o ID para saber qual Produto atualizar.
-  */
-  produtoIdInput.value = Produto.produtoid;
-
-  /*
-    Preenche os demais campos com os dados do Produto.
-  */
-  categoriaProdutoInput.value = Produto.categoriaprodutoid;
-  descProdutoInput.value = Produto.ds_produto;
-  obsProdutoInput.value = Produto.obs_produto;
-  valorProdutoInput.value = Produto.vl_venda_produto;
-  dataCadastroInput.value = Produto.dt_cadastro_produto
-    ? Produto.dt_cadastro_produto.substring(0, 10)
-    : "";
-  statusProdutoInput.value = Produto.status_produto;
-
-  /*
-    Mudamos o texto do botão principal para "Atualizar".
-  */
-  btnSalvar.textContent = "Atualizar";
-
-  /*
-    Mostramos o botão Cancelar edição.
-  */
-  btnCancelarEdicao.style.display = "inline-block";
-
-  /*
-    Mostramos uma mensagem informando que o usuário está editando.
-  */
-  mostrarMensagem(
-    "Editando o Produto: " + Produto.obs_produto + " - " + Produto.ds_produto,
-  );
-}
-
-/*
-  ============================================
-  CANCELAR EDIÇÃO
-  ============================================
-
-  Essa função limpa o formulário e volta para o modo de cadastro.
-*/
-
-function cancelarEdicao() {
+function abrirModalProduto() {
+  produtoIdInput.value = "";
   formProduto.reset();
   preencherDatasAutomaticas();
-
-  produtoIdInput.value = "";
-
-  /*
-    Volta o botão principal para "Salvar".
-  */
-  btnSalvar.textContent = "Salvar";
-
-  /*
-    Esconde novamente o botão Cancelar edição.
-  */
-  btnCancelarEdicao.style.display = "none";
-
-  /*
-    Limpa a área de mensagem.
-  */
   mensagem.textContent = "";
   mensagem.className = "mensagem";
+  modalProdutoTitulo.textContent = "Novo Produto";
+  btnSalvar.textContent = "Salvar";
+  modalProduto.style.display = "flex";
+  document.body.style.overflow = "hidden";
 }
 
-/*
-  ============================================
-  SALVAR Produto
-  ============================================
+function fecharModalProduto() {
+  modalProduto.style.display = "none";
+  document.body.style.overflow = "";
+  carregarProdutos();
+}
 
-  Essa função cadastra um novo Produto no Supabase.
+// ─── CRUD ─────────────────────────────────────────────────────────
 
-  Ela será chamada quando o campo ProdutoId estiver vazio.
-*/
+function prepararEdicao(produto) {
+  produtoIdInput.value = produto.produtoid;
+  categoriaProdutoInput.value = produto.categoriaprodutoid;
+  descProdutoInput.value = produto.ds_produto;
+  obsProdutoInput.value = produto.obs_produto;
+  valorProdutoInput.value = numeroParaMascara(produto.vl_venda_produto);
+  dataCadastroInput.value = produto.dt_cadastro_produto ? produto.dt_cadastro_produto.substring(0, 10) : "";
+  statusProdutoInput.value = produto.status_produto;
+  mensagem.textContent = "";
+  mensagem.className = "mensagem";
+  modalProdutoTitulo.textContent = "Editar Produto";
+  btnSalvar.textContent = "Atualizar";
+  modalProduto.style.display = "flex";
+  document.body.style.overflow = "hidden";
+}
 
 async function salvarProduto() {
-  /*
-    Pegamos os valores digitados no formulário.
-  */
-
   const categoriaProduto = categoriaProdutoInput.value;
   const descProduto = descProdutoInput.value;
   const obsProduto = obsProdutoInput.value;
-  const valorProduto = valorProdutoInput.value;
+  const valorProduto = extrairValorNumerico(valorProdutoInput.value);
   const dataCadastro = dataCadastroInput.value;
   const statusProduto = statusProdutoInput.value;
 
@@ -389,20 +303,11 @@ async function salvarProduto() {
   try {
     proximoProdutoId = await buscarProximoProdutoIdDisponivel();
   } catch (error) {
-    mostrarMensagem(
-      "Erro ao calcular o próximo código: " + error.message,
-      "erro",
-    );
+    mostrarMensagem("Erro ao calcular o próximo código: " + error.message, "erro");
     return;
   }
 
-  /*
-    Montamos o objeto que será enviado para o Supabase.
-
-    As propriedades precisam ter o mesmo nome das colunas da tabela.
-  */
-
-  const novoProduto = {
+  const { error } = await supabaseClient.from("produto").insert({
     produtoid: proximoProdutoId,
     categoriaprodutoid: categoriaProduto,
     ds_produto: descProduto,
@@ -410,48 +315,23 @@ async function salvarProduto() {
     vl_venda_produto: valorProduto,
     dt_cadastro_produto: dataCadastro,
     status_produto: statusProduto,
-  };
+  });
 
-  /*
-    Insere o novo Produto na tabela Produto.
-  */
-  const { error } = await supabaseClient.from("produto").insert(novoProduto);
-
-  /*
-    Se houver erro, mostramos a mensagem e paramos a função.
-  */
   if (error) {
     mostrarMensagem("Erro ao salvar Produto: " + error.message, "erro");
     return;
   }
 
-  /*
-    Se deu certo, mostramos mensagem de sucesso.
-  */
   mostrarMensagem("Produto salvo com sucesso!", "sucesso");
-
-  formProduto.reset();
-  preencherDatasAutomaticas();
-
-  carregarProdutos();
+  setTimeout(fecharModalProduto, 800);
 }
-
-/*
-  ============================================
-  ATUALIZAR NOME DO Produto
-  ============================================
-
-  Essa função atualiza apenas o nome do Produto.
-
-  Ela será chamada quando o campo ProdutoId estiver preenchido.
-*/
 
 async function atualizarProduto() {
   const produtoId = produtoIdInput.value;
   const categoriaProduto = categoriaProdutoInput.value;
   const descProduto = descProdutoInput.value;
   const obsProduto = obsProdutoInput.value;
-  const valorProduto = valorProdutoInput.value;
+  const valorProduto = extrairValorNumerico(valorProdutoInput.value);
   const dataCadastro = dataCadastroInput.value;
   const statusProduto = statusProdutoInput.value;
 
@@ -472,127 +352,52 @@ async function atualizarProduto() {
     return;
   }
 
-  cancelarEdicao();
-  mostrarMensagem("Sucesso ao atualizar item: " + descProduto, "sucesso");
-  carregarProdutos();
+  mostrarMensagem("Produto atualizado com sucesso!", "sucesso");
+  setTimeout(fecharModalProduto, 800);
 }
 
-/*
-  ============================================
-  EXCLUIR Produto
-  ============================================
+async function excluirProduto(produto) {
+  const confirmou = confirm("Tem certeza que deseja excluir o produto " + produto.ds_produto + "?");
+  if (!confirmou) return;
 
-  Essa função exclui um Produto do Supabase.
-
-  Ela recebe o objeto Produto inteiro para poder usar:
-  - Produto.Produtoid
-  - Produto.nome_Produto
-*/
-
-async function excluirProduto(Produto) {
-  /*
-    Antes de excluir, pedimos confirmação.
-
-    O confirm retorna:
-    - true se o usuário clicar em OK;
-    - false se o usuário clicar em Cancelar.
-  */
-  const confirmou = confirm(
-    "Tem certeza que deseja excluir o produto " +
-      Produto.ds_produto +
-      " - " +
-      Produto.obs_produto +
-      "?",
-  );
-
-  /*
-    Se o usuário cancelar, paramos a função.
-  */
-  if (!confirmou) {
-    return;
-  }
-
-  /*
-    Executa o DELETE na tabela Produto.
-
-    O filtro .eq("produtoid", Produto.produtoid) garante que apenas
-    o Produto selecionado será excluído.
-  */
   const { error } = await supabaseClient
     .from("produto")
     .delete()
-    .eq("produtoid", Produto.produtoid);
+    .eq("produtoid", produto.produtoid);
 
-  /*
-    Se houver erro, mostramos uma mensagem.
-  */
   if (error) {
-    mostrarMensagem("Erro ao excluir produto: " + error.message, "erro");
+    mostrarMensagemPrincipal("Erro ao excluir produto: " + error.message, "erro");
     return;
   }
 
-  /*
-    Se o Produto excluído era o mesmo que estava sendo editado,
-    cancelamos a edição para limpar o formulário.
-  */
-  if (produtoIdInput.value == Produto.produtoid) {
-    cancelarEdicao();
-  }
-
-  /*
-    Mostra mensagem de sucesso.
-  */
-  mostrarMensagem("Produto excluído com sucesso!", "sucesso");
-
-  /*
-    Recarrega a tabela para remover visualmente o Produto excluído.
-  */
+  mostrarMensagemPrincipal("Produto excluído com sucesso!", "sucesso");
   carregarProdutos();
 }
 
-/*
-  ============================================
-  EVENTO DE ENVIO DO FORMULÁRIO
-  ============================================
-
-  Este evento acontece quando o usuário clica em Salvar ou Atualizar.
-*/
+// ─── Event listeners ──────────────────────────────────────────────
 
 formProduto.addEventListener("submit", async function (evento) {
-  /*
-    Impede a página de recarregar ao enviar o formulário.
-  */
   evento.preventDefault();
-
-  /*
-    Verificamos se o campo ProdutoId está preenchido.
-
-    Se estiver vazio:
-    - é um cadastro novo.
-
-    Se estiver preenchido:
-    - é uma edição.
-  */
-  const estaEditando = produtoIdInput.value !== "";
-
-  if (estaEditando) {
+  if (produtoIdInput.value !== "") {
     await atualizarProduto();
   } else {
     await salvarProduto();
   }
 });
 
-/*
-  ============================================
-  EVENTO DO BOTÃO CANCELAR EDIÇÃO
-  ============================================
+btnNovoProduto.addEventListener("click", abrirModalProduto);
+btnCancelarModal.addEventListener("click", fecharModalProduto);
+btnFecharModalProduto.addEventListener("click", fecharModalProduto);
+valorProdutoInput.addEventListener("input", aplicarMascaraMoeda);
 
-  Quando o usuário clicar em "Cancelar edição",
-  chamamos a função cancelarEdicao.
-*/
+modalProduto.addEventListener("click", function (e) {
+  if (e.target === modalProduto) fecharModalProduto();
+});
 
-btnCancelarEdicao.addEventListener("click", function () {
-  cancelarEdicao();
+document.addEventListener("keydown", function (e) {
+  if (e.key === "Escape" && modalProduto.style.display !== "none") {
+    fecharModalProduto();
+  }
 });
 
 pillsStatus.forEach(function (pill) {
@@ -611,12 +416,7 @@ pillsStatus.forEach(function (pill) {
 
 btnPesquisarFiltros.addEventListener("click", filtrarProdutos);
 
-[
-  filtroCodProdutoInput,
-  filtroCodCategoriaInput,
-  filtroDescProdutoInput,
-  filtroObsProdutoInput,
-].forEach(function (input) {
+[filtroCodProdutoInput, filtroCodCategoriaInput, filtroDescProdutoInput, filtroObsProdutoInput].forEach(function (input) {
   input.addEventListener("keydown", function (e) {
     if (e.key === "Enter") filtrarProdutos();
   });
@@ -636,12 +436,11 @@ btnLimparFiltros.addEventListener("click", function () {
   statusSelecionados.clear();
   avisoDescProduto.classList.remove("visivel");
   avisoObsProduto.classList.remove("visivel");
-  pillsStatus.forEach(function (pill) {
-    pill.classList.remove("ativa");
-  });
+  pillsStatus.forEach(function (pill) { pill.classList.remove("ativa"); });
   filtrarProdutos();
 });
 
-preencherDatasAutomaticas();
+// ─── Init ─────────────────────────────────────────────────────────
+
 carregarCategoriasDoSelect();
 carregarProdutos();

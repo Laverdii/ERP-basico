@@ -99,6 +99,7 @@ function preencherDatasAutomaticas() {
   const validade = new Date(hoje);
   validade.setDate(hoje.getDate() + DIAS_VALIDADE_ORCAMENTO);
   dataOrcamentoInput.value = formatarDataParaInput(hoje);
+  validadeOrcamentoInput.min = formatarDataParaInput(hoje);
   validadeOrcamentoInput.value = formatarDataParaInput(validade);
 }
 
@@ -149,11 +150,15 @@ function renderizarListaOrcamentos(lista) {
     linha.className = "linha-clicavel";
     linha.title = "Clique para ver os itens do orçamento";
 
+    const hoje = formatarDataParaInput(new Date());
+    const vencido = orcamento.dt_validade_orcamento && orcamento.dt_validade_orcamento.slice(0, 10) < hoje;
+    const validadeHtml = `<span${vencido ? ' class="validade-vencida"' : ""}>${formatarDataParaExibicao(orcamento.dt_validade_orcamento)}</span>`;
+
     linha.innerHTML = `
       <td>${orcamento.orcamentoid}</td>
       <td>${nomeCliente}</td>
       <td>${formatarDataParaExibicao(orcamento.dt_orcamento)}</td>
-      <td>${formatarDataParaExibicao(orcamento.dt_validade_orcamento)}</td>
+      <td>${validadeHtml}</td>
       <td>${formatarMoeda(orcamento.vl_total_orcamento)}</td>
       <td></td>
     `;
@@ -164,6 +169,14 @@ function renderizarListaOrcamentos(lista) {
     });
 
     const tdAcoes = linha.querySelector("td:last-child");
+
+    const btnImprimir = document.createElement("button");
+    btnImprimir.textContent = "Imprimir";
+    btnImprimir.className = "btn-imprimir";
+    btnImprimir.type = "button";
+    btnImprimir.addEventListener("click", function () {
+      imprimirOrcamento(orcamento);
+    });
 
     const btnEditar = document.createElement("button");
     btnEditar.textContent = "Editar";
@@ -181,6 +194,7 @@ function renderizarListaOrcamentos(lista) {
       excluirOrcamento(orcamento.orcamentoid);
     });
 
+    tdAcoes.appendChild(btnImprimir);
     tdAcoes.appendChild(btnEditar);
     tdAcoes.appendChild(btnExcluir);
 
@@ -248,6 +262,7 @@ function abrirModalParaEditar(orcamento) {
   dataOrcamentoInput.value = orcamento.dt_orcamento
     ? orcamento.dt_orcamento.slice(0, 10)
     : "";
+  validadeOrcamentoInput.min = dataOrcamentoInput.value;
   validadeOrcamentoInput.value = orcamento.dt_validade_orcamento
     ? orcamento.dt_validade_orcamento.slice(0, 10)
     : "";
@@ -744,6 +759,12 @@ async function salvarOrcamento(evento) {
     return;
   }
 
+  if (validadeOrcamentoInput.value && dataOrcamentoInput.value &&
+      validadeOrcamentoInput.value < dataOrcamentoInput.value) {
+    mostrarMensagem("A data de validade não pode ser anterior à data do orçamento.", "erro");
+    return;
+  }
+
   btnSalvar.disabled = true;
 
   if (modoEdicaoOrcamento !== null) {
@@ -834,6 +855,130 @@ async function excluirOrcamento(orcamentoId) {
 
   mostrarMensagemPrincipal("Orçamento excluído com sucesso!", "sucesso");
   carregarTodosOrcamentos();
+}
+
+// ─── Imprimir orçamento ───────────────────────────────────────────
+
+async function imprimirOrcamento(orcamento) {
+  const { data: clienteData, error: clienteError } = await supabaseClient
+    .from("cliente")
+    .select("nome_cliente, cpf_cnpj_cliente, tipo_cliente")
+    .eq("clienteid", orcamento.clienteid)
+    .single();
+
+  if (clienteError || !clienteData) {
+    alert("Erro ao carregar dados do cliente para impressão.");
+    return;
+  }
+
+  const { data: itens, error: itensError } = await supabaseClient
+    .from("orcamento_item")
+    .select("produtoid, produtodesc, qt_produto, vl_unitario, vl_total")
+    .eq("orcamentoid", orcamento.orcamentoid)
+    .order("produtoid", { ascending: true });
+
+  if (itensError) {
+    alert("Erro ao carregar itens do orçamento para impressão.");
+    return;
+  }
+
+  const cpfCnpjLimpo = (clienteData.cpf_cnpj_cliente || "").replace(/\D/g, "");
+  let docFormatado = cpfCnpjLimpo;
+  if (cpfCnpjLimpo.length === 11) {
+    docFormatado = cpfCnpjLimpo.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+  } else if (cpfCnpjLimpo.length === 14) {
+    docFormatado = cpfCnpjLimpo.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5");
+  }
+
+  const tipoDoc = cpfCnpjLimpo.length === 11 ? "CPF" : "CNPJ";
+  const logoUrl = new URL("../img/android-chrome-512x512.png", window.location.href).href;
+  const totalGeral = (itens || []).reduce(function (acc, item) {
+    return acc + Number(item.vl_total || 0);
+  }, 0);
+  const dataGeracao = new Date().toLocaleDateString("pt-BR");
+
+  const linhasItens =
+    (itens || []).length === 0
+      ? '<tr><td colspan="5" style="text-align:center;color:#999;padding:20px 12px;">Nenhum item cadastrado para este orçamento.</td></tr>'
+      : (itens || [])
+          .map(function (item, idx) {
+            return (
+              '<tr style="background:' +
+              (idx % 2 === 0 ? "#fff" : "#f8f9fb") +
+              '">' +
+              "<td>" + item.produtoid + "</td>" +
+              "<td>" + (item.produtodesc || "-") + "</td>" +
+              '<td style="text-align:center">' + item.qt_produto + "</td>" +
+              '<td style="text-align:right">' + formatarMoeda(item.vl_unitario) + "</td>" +
+              '<td style="text-align:right;font-weight:600">' + formatarMoeda(item.vl_total) + "</td>" +
+              "</tr>"
+            );
+          })
+          .join("");
+
+  const html =
+    '<!DOCTYPE html><html lang="pt-br"><head><meta charset="UTF-8">' +
+    "<title>Orçamento #" + orcamento.orcamentoid + "</title>" +
+    "<style>" +
+    "*{margin:0;padding:0;box-sizing:border-box}" +
+    "body{font-family:'Segoe UI',Arial,sans-serif;background:#fff;color:#333}" +
+    ".wrap{max-width:800px;margin:0 auto;padding:40px}" +
+    ".header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:36px;padding-bottom:20px;border-bottom:2px solid #356fa1}" +
+    ".header-logo img{width:72px;height:72px;object-fit:contain}" +
+    ".header-titulo{text-align:right}" +
+    ".header-titulo h1{font-size:26px;color:#356fa1;font-weight:700;letter-spacing:-0.5px}" +
+    ".header-titulo .num{font-size:14px;color:#888;margin-top:5px}" +
+    ".info-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:28px}" +
+    ".info-card{background:#f8f9fb;border-radius:8px;padding:16px 18px;border-left:3px solid #356fa1}" +
+    ".info-card h3{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#aaa;margin-bottom:10px;font-weight:700}" +
+    ".info-row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:7px}" +
+    ".info-row:last-child{margin-bottom:0}" +
+    ".info-label{font-size:12px;color:#888}" +
+    ".info-value{font-size:13px;font-weight:600;color:#222;max-width:60%;text-align:right;word-break:break-word}" +
+    ".secao-titulo{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#aaa;margin-bottom:8px}" +
+    "table{width:100%;border-collapse:collapse;margin-bottom:16px}" +
+    "thead th{background:#356fa1;color:#fff;font-size:11px;font-weight:700;padding:10px 12px;text-align:left;text-transform:uppercase;letter-spacing:0.4px}" +
+    "tbody td{padding:9px 12px;font-size:13px;border-bottom:1px solid #eaecf0}" +
+    ".total-wrap{display:flex;justify-content:flex-end;margin-top:4px}" +
+    ".total-box{background:#356fa1;color:#fff;border-radius:8px;padding:14px 22px;text-align:right;min-width:220px}" +
+    ".total-label{font-size:10px;text-transform:uppercase;letter-spacing:1px;opacity:0.8}" +
+    ".total-valor{font-size:22px;font-weight:700;margin-top:4px}" +
+    ".footer{margin-top:40px;padding-top:16px;border-top:1px solid #e8ecf0;text-align:center;font-size:11px;color:#bbb}" +
+    "@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}.wrap{padding:20px}}" +
+    "</style></head><body><div class='wrap'>" +
+    "<div class='header'>" +
+    "<div class='header-logo'><img src='" + logoUrl + "' alt='Logo' onerror=\"this.style.display='none'\"></div>" +
+    "<div class='header-titulo'><h1>Orçamento</h1><div class='num'>Nº " + orcamento.orcamentoid + "</div></div>" +
+    "</div>" +
+    "<div class='info-grid'>" +
+    "<div class='info-card'><h3>Cliente</h3>" +
+    "<div class='info-row'><span class='info-label'>Nome</span><span class='info-value'>" + clienteData.nome_cliente + "</span></div>" +
+    "<div class='info-row'><span class='info-label'>" + tipoDoc + "</span><span class='info-value'>" + (docFormatado || "-") + "</span></div>" +
+    "</div>" +
+    "<div class='info-card'><h3>Orçamento</h3>" +
+    "<div class='info-row'><span class='info-label'>Número</span><span class='info-value'>#" + orcamento.orcamentoid + "</span></div>" +
+    "<div class='info-row'><span class='info-label'>Data</span><span class='info-value'>" + formatarDataParaExibicao(orcamento.dt_orcamento) + "</span></div>" +
+    "<div class='info-row'><span class='info-label'>Válido até</span><span class='info-value'>" + formatarDataParaExibicao(orcamento.dt_validade_orcamento) + "</span></div>" +
+    "</div></div>" +
+    "<div class='secao-titulo'>Itens do Orçamento</div>" +
+    "<table><thead><tr>" +
+    "<th>Cód.</th><th>Descrição</th><th style='text-align:center'>Qtd.</th><th style='text-align:right'>Valor Unit.</th><th style='text-align:right'>Valor Total</th>" +
+    "</tr></thead><tbody>" + linhasItens + "</tbody></table>" +
+    "<div class='total-wrap'><div class='total-box'><div class='total-label'>Total do Orçamento</div><div class='total-valor'>" + formatarMoeda(totalGeral) + "</div></div></div>" +
+    "<div class='footer'>Documento gerado em " + dataGeracao + " &nbsp;·&nbsp; Válido até " + formatarDataParaExibicao(orcamento.dt_validade_orcamento) + "</div>" +
+    "</div></body></html>";
+
+  const janela = window.open("", "_blank", "width=900,height=700");
+  if (!janela) {
+    alert("O navegador bloqueou a janela de impressão. Por favor, permita popups para esta página.");
+    return;
+  }
+  janela.document.write(html);
+  janela.document.close();
+  janela.focus();
+  setTimeout(function () {
+    janela.print();
+  }, 600);
 }
 
 // ─── Event listeners ──────────────────────────────────────────────
